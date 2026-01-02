@@ -5,9 +5,9 @@
     "author": "Pietro Rustici",
     "license": "MIT",
     "dependencies": [],
-    "urls": {
-        "": "https://raw.githubusercontent.com/matta-pie/micro-mcp/main/micro_mcp/__init__.py",
-        "mcp_server": "https://raw.githubusercontent.com/matta-pie/micro-mcp/main/micro_mcp/mcp_server.py"
-    }
+    "urls": [
+        ["micro_mcp/__init__.py", "https://raw.githubusercontent.com/matta-pie/micro-mcp/main/micro_mcp/__init__.py"],
+        ["micro_mcp/mcp_server.py", "https://raw.githubusercontent.com/matta-pie/micro-mcp/main/micro_mcp/mcp_server.py"]
+    ]
 }
 
