@@ -14,20 +14,58 @@ Micro-MCP implements the MCP protocol specification (2025-03-26) with HTTP trans
 - ✅ Resource support for data exposure
 - ✅ Session management
 - ✅ Optimized for MicroPython memory constraints
-- ✅ Works on Raspberry Pi Pico W and similar devices
+
+## Compatibility
+| Board | Compatibility | MicroPython Support | Chip Family |
+|------|---------------|---------------------|-------------|
+| Challenger RP2040 WiFi | ✅ | Community | RP2040 + WiFi |
+| Raspberry Pi Pico W | ✅ | Official | RP2040 + CYW43439 |
+| Raspberry Pi Pico 2 W | ✅ | Official | RP2350 + WiFi |
+| ESP32 Dev Module | 🧪 | Official | ESP32 |
+| ESP32 WROOM-32 | 🧪 | Official | ESP32 |
+| ESP32 DevKitC | 🧪 | Official | ESP32 |
+| ESP32-WROVER | 🧪 | Official | ESP32 |
+| ESP32 Pico Kit | 🧪 | Official | ESP32 |
+| ESP32-S2 Dev Board | 🧪 | Official | ESP32-S2 |
+| ESP32-S3 Dev Board | 🧪 | Official | ESP32-S3 |
+| ESP32-C3 Dev Board | 🧪 | Official | ESP32-C3 |
+| ESP32-C6 Dev Board | 🧪 | Community | ESP32-C6 |
+| ESP32-H2 Dev Board | 🧪 | Community | ESP32-H2 |
+| NodeMCU ESP32 | 🧪 | Official | ESP32 |
+| LOLIN32 / Wemos Lolin32 | 🧪 | Official | ESP32 |
+| M5Stack Core (ESP32) | 🧪 | Official | ESP32 |
+| M5StickC / M5StickC Plus | 🧪 | Official | ESP32 |
+| Adafruit QT Py ESP32 | 🧪 | Official | ESP32-S2 / ESP32-S3 |
+| Adafruit Feather ESP32 | 🧪 | Official | ESP32 |
+| Adafruit Feather ESP32-S2 | 🧪 | Official | ESP32-S2 |
+| Adafruit Feather ESP32-S3 | 🧪 | Official | ESP32-S3 |
+| Seeed XIAO ESP32-C3 | 🧪 | Official | ESP32-C3 |
+| Seeed XIAO ESP32-S3 | 🧪 | Official | ESP32-S3 |
+| ESP8266 ESP-12 / ESP-12F | 🧪 | Official | ESP8266 |
+| NodeMCU ESP8266 | 🧪 | Official | ESP8266 |
+| Wemos D1 Mini (ESP8266) | 🧪 | Official | ESP8266 |
+| ESP8285 Dev Board | 🧪 | Official | ESP8285 |
+| Pyboard D-Series (WB55) | 🧪 | Official | STM32WB55 |
+| OpenMVG H7 Plus (WiFi variant) | 🧪 | Official | STM32H7 |
+
+Compatible: ✅
+Untested: 🧪
+Not compatible: ❌
+
+## Tested LLM Libraries
+| Library | Class | Language |
+|---------|-------|----------|
+| [PydanticAI](https://ai.pydantic.dev/) | MCPServerStreamableHTTP | Python |
 
 ## Installation
 
 ### Using MIP (MicroPython Package Installer)
 
-Once this package is hosted on GitHub, install it using:
-
 ```python
 import mip
-mip.install("github:YOUR_USERNAME/micro-mcp")
+mip.install("github:matta-pie/micro-mcp")
 ```
 
-Replace `YOUR_USERNAME` with your GitHub username.
 
 ### Manual Installation
 
@@ -261,12 +299,4 @@ MIT License - see LICENSE file for details
 
 - MCP Protocol: [Model Context Protocol Specification](https://modelcontextprotocol.io)
 - MicroPython: [MicroPython Project](https://micropython.org)
-
-## Changelog
-
-### 1.0.0
-- Initial release
-- MCP protocol support (tools, resources, sessions)
-- HTTP transport with JSON-RPC 2.0
-- Decorator-based API
 
