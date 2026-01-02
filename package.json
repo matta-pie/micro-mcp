@@ -1,0 +1,13 @@
+{
+    "name": "micro-mcp",
+    "version": "1.0.0",
+    "description": "MCP (Model Context Protocol) Server Library for MicroPython - A lightweight implementation for Raspberry Pi Pico W and similar embedded systems",
+    "author": "",
+    "license": "MIT",
+    "dependencies": [],
+    "urls": {
+        "": "https://raw.githubusercontent.com/YOUR_USERNAME/micro-mcp/main/micro_mcp/__init__.py",
+        "mcp_server": "https://raw.githubusercontent.com/YOUR_USERNAME/micro-mcp/main/micro_mcp/mcp_server.py"
+    }
+}
+
