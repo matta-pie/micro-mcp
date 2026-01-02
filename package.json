@@ -6,8 +6,8 @@
     "license": "MIT",
     "dependencies": [],
     "urls": [
-        ["micro_mcp/__init__.py", "https://raw.githubusercontent.com/matta-pie/micro-mcp/main/micro_mcp/__init__.py"],
-        ["micro_mcp/mcp_server.py", "https://raw.githubusercontent.com/matta-pie/micro-mcp/main/micro_mcp/mcp_server.py"]
+        ["micro_mcp/__init__.py", "micro_mcp/__init__.py"],
+        ["micro_mcp/mcp_server.py", "micro_mcp/mcp_server.py"]
     ]
 }
 

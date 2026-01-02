@@ -61,19 +61,10 @@ Not compatible: ❌
 
 ### Using MIP (MicroPython Package Installer)
 
-**From GitHub (current):**
 ```python
 import mip
 mip.install("github:matta-pie/micro-mcp")
 ```
-
-**From micropython-lib (once submitted):**
-```python
-import mip
-mip.install("micro-mcp")  # Available from default index
-```
-
-> **Note**: To make this package available in the official `mip` index, see [MICROPYTHON_LIB_SUBMISSION.md](MICROPYTHON_LIB_SUBMISSION.md) for submission instructions.
 
 
 ### Manual Installation
