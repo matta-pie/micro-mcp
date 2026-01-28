@@ -66,6 +66,47 @@ import mip
 mip.install("github:matta-pie/micro-mcp")
 ```
 
+### Connecting to wifi and installing the library
+```
+import time
+
+import network
+
+# WiFi Configuration - UPDATE THESE WITH YOUR CREDENTIALS
+WIFI_SSID = "wifi name"
+WIFI_PASSWORD = ""
+
+def connect_wifi():
+    """Connect to WiFi network"""
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    
+    if not wlan.isconnected():
+        print("Connecting to WiFi:", WIFI_SSID)
+        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+        
+        timeout = 20
+        while not wlan.isconnected() and timeout > 0:
+            print(".", end="")
+            time.sleep(1)
+            timeout -= 1
+        print()
+    
+    if wlan.isconnected():
+        ip = wlan.ifconfig()[0]
+        print("Connected! IP:", ip)
+        return ip
+    else:
+        print("Failed to connect to WiFi")
+        return None
+
+
+connect_wifi()
+
+import mip
+
+mip.install("github:matta-pie/micro-mcp")
+```
 
 ### Manual Installation
 
