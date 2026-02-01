@@ -4,12 +4,13 @@ A lightweight MCP (Model Context Protocol) Server library for MicroPython, desig
 
 ## Overview
 
-Micro-MCP implements the MCP protocol specification (2025-03-26) with HTTP transport and JSON-RPC 2.0 messaging. It allows you to create MCP servers on MicroPython devices that can expose tools and resources to MCP clients.
+Micro-MCP implements the MCP protocol specification (2025-03-26) with **HTTP** and **stdio** transports and JSON-RPC 2.0 messaging. It allows you to create MCP servers on MicroPython devices that can expose tools and resources to MCP clients.
 
 ## Features
 
 - ✅ Full MCP protocol support (tools, resources, sessions)
-- ✅ HTTP transport with JSON-RPC 2.0
+- ✅ **HTTP transport** with JSON-RPC 2.0 (WiFi)
+- ✅ **Stdio transport** over USB serial (no WiFi required)
 - ✅ Decorator-based tool registration
 - ✅ Resource support for data exposure
 - ✅ Session management
@@ -115,6 +116,10 @@ mip.install("github:matta-pie/micro-mcp")
    - `micro_mcp/__init__.py`
    - `micro_mcp/mcp_server.py`
 
+### Manual Installation (mpremote)
+
+`pipx run mpremote mip install github:matta-pie/micro-mcp`
+
 ## Quick Start
 
 ```python
@@ -149,9 +154,55 @@ mcp = MCPServer(name="my-server", version="1.0.0")
 def echo(message):
     return {"echoed": message}
 
-# Start the server
+# Start the server (HTTP)
 mcp.run(port=8080)
 ```
+
+## Stdio transport (USB serial)
+
+When the Pico is connected to your laptop via **USB**, you can run the MCP server over **stdio** (newline-delimited JSON-RPC). No WiFi is required.
+
+### On the Pico
+
+1. Copy `micro_mcp` and your main script to the Pico.
+2. Run a script that uses stdio transport, e.g. `examples/main_stdio.py`:
+
+```python
+from micro_mcp import MCPServer
+
+mcp = MCPServer(name="pico-stdio-server", version="1.0.0")
+
+@mcp.tool("echo", "Echo back a message", {
+    "type": "object",
+    "properties": {"message": {"type": "string"}},
+    "required": ["message"]
+})
+def echo(message):
+    return {"echo": message}
+
+mcp.run(transport="stdio")  # or mcp.run_stdio()
+```
+
+### On the laptop: serial bridge
+
+MCP clients (e.g. Cursor) expect to **spawn** a process and talk to it via stdin/stdout. The Pico is already running and connected over USB, so you run a small **bridge** that forwards stdio ↔ serial:
+
+1. Install [pyserial](https://pypi.org/project/pyserial/): `pip install pyserial`
+2. Find the Pico’s serial port (e.g. `/dev/ttyACM0` on Linux, `COM3` on Windows).
+3. Run the bridge:
+
+```bash
+python tools/mcp_serial_bridge.py /dev/ttyACM0 115200
+```
+
+### Cursor configuration
+
+In Cursor’s MCP settings, add a server that runs the bridge:
+
+- **Command:** `python` (or `python3`)
+- **Args:** `path/to/pico-mcp/tools/mcp_serial_bridge.py`, `/dev/ttyACM0`, `115200`
+
+Replace the path and port with your setup. Ensure the Pico is running an MCP server with `run(transport="stdio")` before connecting.
 
 ## Usage
 
@@ -288,17 +339,30 @@ Decorator to register a resource.
 - `description` (str): Resource description
 - `mime_type` (str): MIME type of resource content
 
-#### `run(host='0.0.0.0', port=8080)`
+#### `run(host='0.0.0.0', port=8080, transport='http', stream_in=None, stream_out=None)`
 
 Start the MCP server.
 
 **Parameters:**
-- `host` (str): Host to bind to (default: '0.0.0.0')
-- `port` (int): Port to listen on (default: 8080)
+- `host` (str): Host to bind to (default: '0.0.0.0') — HTTP only
+- `port` (int): Port to listen on (default: 8080) — HTTP only
+- `transport` (str): `'http'` or `'stdio'`
+- `stream_in`: Input stream for stdio (default: `sys.stdin`)
+- `stream_out`: Output stream for stdio (default: `sys.stdout`)
+
+#### `run_stdio(stream_in=None, stream_out=None)`
+
+Run the MCP server over stdio (newline-delimited JSON-RPC). Use when the Pico is connected via USB; the laptop runs the serial bridge. Equivalent to `run(transport='stdio', ...)`.
+
+**Parameters:**
+- `stream_in`: Input stream (default: `sys.stdin`)
+- `stream_out`: Output stream (default: `sys.stdout`)
 
 ## Examples
 
 See the `examples/` directory for complete working examples including:
+- **main.py** — HTTP transport with WiFi (e.g. printer tool)
+- **main_stdio.py** — Stdio transport over USB (no WiFi; echo, ping tools)
 - GPIO control (LED, digital I/O)
 - PWM control
 - System information
@@ -324,8 +388,9 @@ See the `examples/` directory for complete working examples including:
 
 ## Requirements
 
-- MicroPython with network support
-- WiFi connectivity (for network access)
+- MicroPython (with network support for HTTP transport)
+- **HTTP:** WiFi connectivity
+- **Stdio:** USB connection only; no WiFi required
 - Compatible with Raspberry Pi Pico W and similar devices
 
 ## Contributing

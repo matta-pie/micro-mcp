@@ -17,7 +17,8 @@ Usage:
     def my_tool(param):
         return {"result": param}
     
-    mcp.run(port=8080)
+    mcp.run(port=8080)          # HTTP over WiFi
+    mcp.run(transport="stdio")  # stdio over USB (no WiFi)
 """
 
 from .mcp_server import MCPServer

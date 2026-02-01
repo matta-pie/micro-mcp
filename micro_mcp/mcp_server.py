@@ -21,6 +21,7 @@ Usage:
 import binascii
 import json
 import socket
+import sys
 import time
 
 from machine import Pin, unique_id
@@ -42,7 +43,8 @@ class MCPServer:
         }
         self.protocol_version = protocol_version
         self.capabilities = {
-            "tools": {}
+            "tools": {},
+            "resources": {}
         }
         
         # Tool registry: {tool_name: {"schema": {...}, "handler": func}}
@@ -53,6 +55,9 @@ class MCPServer:
         
         # Session management
         self._session_id = None
+        
+        # Stdio mode: when True, do not print to stdout (use stderr or suppress)
+        self._stdio_mode = False
         
         # Pin cache for GPIO operations
         self._pin_cache = {}
@@ -165,6 +170,35 @@ class MCPServer:
         except Exception as e:
             return {"error": f"Resource fetch failed: {str(e)}"}
     
+    def _log(self, *args):
+        """Log to stderr in stdio mode so stdout stays clean for MCP messages."""
+        if not self._stdio_mode:
+            print(*args)
+        else:
+            try:
+                sys.stderr.write(" ".join(str(a) for a in args) + "\n")
+                if hasattr(sys.stderr, "flush"):
+                    sys.stderr.flush()
+            except Exception:
+                pass
+    
+    def _read_stdio_message(self, stream):
+        """Read one newline-delimited JSON-RPC message from stream. Returns None on EOF."""
+        line = stream.readline()
+        if not line:
+            return None
+        if isinstance(line, bytes):
+            line = line.decode("utf-8")
+        line = line.strip().rstrip("\r")
+        return line if line else None
+    
+    def _write_stdio_message(self, stream, obj):
+        """Write one JSON-RPC message as a single line (newline-delimited)."""
+        body = json.dumps(obj)
+        stream.write(body + "\n")
+        if hasattr(stream, "flush"):
+            stream.flush()
+    
     def _handle_jsonrpc(self, request):
         """Handle a JSON-RPC 2.0 request"""
         try:
@@ -172,14 +206,14 @@ class MCPServer:
             params = request.get("params", {})
             req_id = request.get("id")
             
-            print(f"JSONRPC METHOD: {method}")
-            print(f"JSONRPC PARAMS: {params}")
-            print(f"JSONRPC ID: {req_id}")
+            self._log("JSONRPC METHOD:", method)
+            self._log("JSONRPC PARAMS:", params)
+            self._log("JSONRPC ID:", req_id)
             
             if method == "initialize":
                 # Generate session ID
                 self._session_id = binascii.hexlify(unique_id()).decode() + "-" + str(time.ticks_ms())
-                print(f"GENERATED SESSION ID: {self._session_id}")
+                self._log("GENERATED SESSION ID:", self._session_id)
                 
                 response = {
                     "jsonrpc": "2.0",
@@ -193,11 +227,11 @@ class MCPServer:
                         }
                     }
                 }
-                print(f"INITIALIZE RESPONSE: {response}")
+                self._log("INITIALIZE RESPONSE:", response)
             
             elif method == "initialized":
                 # Client confirms initialization
-                print("CLIENT CONFIRMED INITIALIZATION")
+                self._log("CLIENT CONFIRMED INITIALIZATION")
                 response = None  # No response needed for notification
             
             elif method == "tools/list":
@@ -544,14 +578,65 @@ class MCPServer:
             print("CONNECTION CLOSED")
             print("="*50 + "\n")
     
-    def run(self, host='0.0.0.0', port=8080):
+    def run_stdio(self, stream_in=None, stream_out=None):
         """
-        Start the MCP server
+        Run the MCP server over stdio (newline-delimited JSON-RPC).
+        Use when the Pico is connected via USB serial; the laptop runs a
+        bridge that forwards stdio <-> serial (see tools/mcp_serial_bridge.py).
         
         Args:
-            host: Host to bind to (default: '0.0.0.0')
-            port: Port to listen on (default: 8080)
+            stream_in: Input stream (default: sys.stdin)
+            stream_out: Output stream (default: sys.stdout)
         """
+        if stream_in is None:
+            stream_in = sys.stdin
+        if stream_out is None:
+            stream_out = sys.stdout
+        
+        self._stdio_mode = True
+        
+        while True:
+            line = self._read_stdio_message(stream_in)
+            if line is None:
+                break
+            try:
+                request = json.loads(line)
+            except Exception as e:
+                self._log("Parse error:", e)
+                err = {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "Parse error: " + str(e)},
+                }
+                self._write_stdio_message(stream_out, err)
+                continue
+            
+            if isinstance(request, list):
+                responses = []
+                for req in request:
+                    resp = self._handle_jsonrpc(req)
+                    if resp is not None:
+                        responses.append(resp)
+                self._write_stdio_message(stream_out, responses)
+            else:
+                response = self._handle_jsonrpc(request)
+                if response is not None:
+                    self._write_stdio_message(stream_out, response)
+    
+    def run(self, host='0.0.0.0', port=8080, transport='http', stream_in=None, stream_out=None):
+        """
+        Start the MCP server.
+        
+        Args:
+            host: Host to bind to (default: '0.0.0.0') - HTTP only
+            port: Port to listen on (default: 8080) - HTTP only
+            transport: 'http' or 'stdio'
+            stream_in: Input stream for stdio transport (default: sys.stdin)
+            stream_out: Output stream for stdio transport (default: sys.stdout)
+        """
+        if transport == 'stdio':
+            self.run_stdio(stream_in=stream_in, stream_out=stream_out)
+            return
         # Get actual IP address
         import network
         wlan = network.WLAN(network.STA_IF)

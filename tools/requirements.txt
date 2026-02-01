@@ -1,0 +1,2 @@
+# For the MCP serial bridge (laptop-side, CPython)
+pyserial>=3.5
