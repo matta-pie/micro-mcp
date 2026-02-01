@@ -185,11 +185,25 @@ mcp.run(transport="stdio")  # or mcp.run_stdio()
 
 ### On the laptop: serial bridge
 
-MCP clients (e.g. Cursor) expect to **spawn** a process and talk to it via stdin/stdout. The Pico is already running and connected over USB, so you run a small **bridge** that forwards stdio ↔ serial:
+MCP clients (e.g. Cursor) expect to **spawn** a process and talk to it via stdin/stdout. The Pico is already running and connected over USB, so you run a small **bridge** that forwards stdio ↔ serial.
 
-1. Install [pyserial](https://pypi.org/project/pyserial/): `pip install pyserial`
-2. Find the Pico’s serial port (e.g. `/dev/ttyACM0` on Linux, `COM3` on Windows).
-3. Run the bridge:
+1. **Install pyserial** (pick one):
+   - **pipx (recommended on macOS/Homebrew)** — no venv to create; run the bridge with pyserial in one go:
+     ```bash
+     pipx run --spec pyserial python tools/mcp_serial_bridge.py /dev/ttyACM0 115200
+     ```
+     For Cursor, set **Command** to `pipx` and **Args** to `run`, `--spec`, `pyserial`, `python`, `path/to/tools/mcp_serial_bridge.py`, `/dev/ttyACM0`, `115200`.
+   - **Virtual environment** — if your Python is “externally managed” (e.g. macOS Homebrew):
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate   # Windows: .venv\Scripts\activate
+     pip install pyserial
+     python tools/mcp_serial_bridge.py /dev/ttyACM0 115200
+     ```
+     For Cursor, set **Command** to the venv’s Python (e.g. `path/to/pico-mcp/.venv/bin/python`) and **Args** to `tools/mcp_serial_bridge.py`, `/dev/ttyACM0`, `115200`.
+   - **System pip** — only if your OS allows it (e.g. some Linux): `pip install pyserial` or `pip install --user pyserial`, then run the bridge with that `python`.
+2. **Find the Pico’s serial port** (e.g. `/dev/tty.usbmodem*` or `/dev/ttyACM0` on macOS/Linux, `COM3` on Windows).
+3. **Run the bridge** (if not using the pipx one-liner above):
 
 ```bash
 python tools/mcp_serial_bridge.py /dev/ttyACM0 115200
@@ -197,12 +211,69 @@ python tools/mcp_serial_bridge.py /dev/ttyACM0 115200
 
 ### Cursor configuration
 
-In Cursor’s MCP settings, add a server that runs the bridge:
+This project includes **`.cursor/mcp.json`** so Cursor can run the serial bridge. You only need to set your Pico’s serial port:
 
-- **Command:** `python` (or `python3`)
-- **Args:** `path/to/pico-mcp/tools/mcp_serial_bridge.py`, `/dev/ttyACM0`, `115200`
+1. Find the port: `ls /dev/tty.usb*` or `ls /dev/cu.usb*` (macOS), or e.g. `COM3` on Windows.
+2. Open **`.cursor/mcp.json`** and replace `"/dev/tty.usbmodem101"` in the `args` array with your port (e.g. `"/dev/tty.usbmodem12301"`).
+3. Reload Cursor or restart the MCP server so it picks up the change.
 
-Replace the path and port with your setup. Ensure the Pico is running an MCP server with `run(transport="stdio")` before connecting.
+The default config uses **pipx** (no venv). If you use a **venv** instead, change the entry to:
+
+```json
+"pico-serial": {
+  "command": "${workspaceFolder}/.venv/bin/python",
+  "args": [
+    "${workspaceFolder}/tools/mcp_serial_bridge.py",
+    "/dev/tty.usbmodem101",
+    "115200"
+  ]
+}
+```
+
+Ensure the Pico is running an MCP server with `run(transport="stdio")` before connecting.
+
+### If Cursor shows "Request timed out" (MCP error -32001)
+
+1. **Pico must be running the MCP server**  
+   On the Pico, run `examples/main_stdio.py` (or your script that calls `mcp.run(transport="stdio")`). Start it from Thonny, mpremote, or your IDE, then **disconnect** the IDE so the serial port is free for the bridge.
+
+2. **Use the correct serial port**  
+   In `.cursor/mcp.json`, the port in `args` must match your Pico. On macOS, try **`/dev/cu.usbmodem21401`** (or your number) if **`/dev/tty.usbmodem21401`** fails; `cu` is often better for programmatic access.
+
+3. **Only one program can use the port**  
+   Close Thonny, mpremote, or any other app that has the Pico’s serial port open before starting the bridge (or connecting in Cursor).
+
+4. **Check the bridge started**  
+   In Cursor’s MCP / output logs you should see: `MCP serial bridge: connected to ...`. If you see `Failed to open ...`, the port is wrong or in use.
+
+### Debugging
+
+1. **Run the bridge in a terminal**  
+   So you see stderr (errors and the “connected to…” message):
+   ```bash
+   pipx run --spec pyserial python tools/mcp_serial_bridge.py /dev/cu.usbmodem21401 115200
+   ```
+   If the port fails to open, you’ll see the error there.
+
+2. **Use `--debug` to log every line**  
+   The bridge can log each message sent/received to stderr (stdout stays clean for MCP):
+   ```bash
+   pipx run --spec pyserial python tools/mcp_serial_bridge.py /dev/cu.usbmodem21401 115200 --debug
+   ```
+   In Cursor, add `--debug` to the bridge `args` in `.cursor/mcp.json`; then check Cursor’s MCP/output logs for `> ` (Cursor → Pico) and `< ` (Pico → Cursor). If you see `> ` but never `< `, the Pico isn’t replying.
+
+3. **Test the Pico with a one-line request**  
+   With the Pico running `main_stdio.py` and nothing else using the port, send one JSON-RPC line and see if you get a response:
+   ```bash
+   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | pipx run --spec pyserial python tools/mcp_serial_bridge.py /dev/cu.usbmodem21401 115200 --debug
+   ```
+   You should see `> ...` and then `< ...` (the Pico’s initialize result). If you only see `> `, the Pico isn’t reading or replying.
+
+4. **Check Cursor’s MCP logs**  
+   In Cursor: **Help → Toggle Developer Tools → Console**, or open the **Output** panel and choose the MCP channel. Look for “MCP serial bridge: connected to…”, “Failed to open…”, or `--debug` lines.
+
+5. **Pico side**  
+   Ensure the script is actually running (e.g. you ran `main_stdio.py` from Thonny and see no errors). In stdio mode the Pico does not log to the serial port (only MCP JSON is sent), so you won’t see debug lines from the Pico when using the bridge.
 
 ## Usage
 

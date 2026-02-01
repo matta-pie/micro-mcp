@@ -171,16 +171,13 @@ class MCPServer:
             return {"error": f"Resource fetch failed: {str(e)}"}
     
     def _log(self, *args):
-        """Log to stderr in stdio mode so stdout stays clean for MCP messages."""
+        """Log to stdout (HTTP) or suppress (stdio). In stdio mode, stderr and stdout
+        are the same serial stream, so any log would be forwarded to the client as
+        non-JSON and break MCP. We must not write anything except MCP messages."""
         if not self._stdio_mode:
             print(*args)
-        else:
-            try:
-                sys.stderr.write(" ".join(str(a) for a in args) + "\n")
-                if hasattr(sys.stderr, "flush"):
-                    sys.stderr.flush()
-            except Exception:
-                pass
+        # In stdio mode: do nothing. Otherwise stderr goes over the same serial
+        # as stdout and the bridge forwards it to Cursor, which then fails parsing.
     
     def _read_stdio_message(self, stream):
         """Read one newline-delimited JSON-RPC message from stream. Returns None on EOF."""
@@ -229,8 +226,8 @@ class MCPServer:
                 }
                 self._log("INITIALIZE RESPONSE:", response)
             
-            elif method == "initialized":
-                # Client confirms initialization
+            elif method == "initialized" or method == "notifications/initialized":
+                # Client confirms initialization (Cursor may send notifications/initialized)
                 self._log("CLIENT CONFIRMED INITIALIZATION")
                 response = None  # No response needed for notification
             
@@ -583,7 +580,11 @@ class MCPServer:
         Run the MCP server over stdio (newline-delimited JSON-RPC).
         Use when the Pico is connected via USB serial; the laptop runs a
         bridge that forwards stdio <-> serial (see tools/mcp_serial_bridge.py).
-        
+
+        Do not print to stderr here: on Pico over USB serial, stderr and stdout
+        are the same stream, so any non-JSON output would be forwarded to the
+        client and break MCP.
+
         Args:
             stream_in: Input stream (default: sys.stdin)
             stream_out: Output stream (default: sys.stdout)
@@ -592,17 +593,17 @@ class MCPServer:
             stream_in = sys.stdin
         if stream_out is None:
             stream_out = sys.stdout
-        
+
         self._stdio_mode = True
-        
+
         while True:
             line = self._read_stdio_message(stream_in)
             if line is None:
                 break
             try:
                 request = json.loads(line)
-            except Exception as e:
-                self._log("Parse error:", e)
+            except (ValueError, KeyError) as e:
+                # MicroPython raises ValueError for JSON decode errors
                 err = {
                     "jsonrpc": "2.0",
                     "id": None,
@@ -610,14 +611,15 @@ class MCPServer:
                 }
                 self._write_stdio_message(stream_out, err)
                 continue
-            
+
             if isinstance(request, list):
                 responses = []
                 for req in request:
                     resp = self._handle_jsonrpc(req)
                     if resp is not None:
                         responses.append(resp)
-                self._write_stdio_message(stream_out, responses)
+                if responses:
+                    self._write_stdio_message(stream_out, responses)
             else:
                 response = self._handle_jsonrpc(request)
                 if response is not None:

@@ -45,5 +45,6 @@ Thumbs.db
 # Examples (keep structure but ignore credentials)
 examples/*.py
 !examples/main.py
+!examples/main_stdio.py
 
 examples-agents/
